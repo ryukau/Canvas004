@@ -41,10 +41,6 @@
             Lock n<input id="checkboxSymmetry" type="checkbox">
         </p>
         
-        <p>
-        描画が重くなってきた場合は、一度Pauseしてみてください。
-        </p>
-        
         <script>
             const N = 0; // North
             const W = 1; // West
@@ -340,7 +336,7 @@
                 var y = e.clientY - rect.top;
                 
                 turmite.addAnt(x, y, S);
-                animate();
+                updateCanvas();
             }
             
             // UI //
@@ -422,7 +418,7 @@
                 pause = true;
                 
                 stepForward();
-                animate();
+                updateCanvas();
             }
             
             function onClickButtonPause()
@@ -446,7 +442,7 @@
             {
                 step = 0;
                 turmite.reset();
-                animate();
+                updateCanvas();
             }
             
             function onClickButtonRandom()
