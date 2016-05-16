@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>Canvas004 Turmite (Multi)</title>
+        <style type="text/css">
+            body { margin: 0; }
+            #canvasMain {
+                image-rendering: pixelated;
+                border-style: solid;
+                border-width: 0.2px;
+                border-color: #000000;
+            }
+            #numberState, #numberColor {
+                width: 4em;
+            }
+        </style>
+	</head>
+	<body>
+        <canvas id="canvasMain" width="512" height="512"></canvas>
+        
+        <p>
+            Step: <span id="spanStep"></span>
+            / Display Ant <input id="checkboxDisplayAnt" type="checkbox">
+        </p>
+        
+        <p>
+            Speed: <input id="numberSpeed" type="number" value="10" min="1" step="10" oninput="onInputNumberSpeed(this.value)">
+        </p>
+        
+        <p>
+            Rule: <input id="textRule" type="text" readonly>
+        </p>
+        
+        <p>
+			<input id="buttonStep" type="button" value="Step" onclick="onClickButtonStep()">
+            <input id="buttonPause" type="button" value="Pause" onclick="onClickButtonPause()">
+            <input id="buttonClear" type="button" value="Clear" onclick="onClickButtonClear()">
+            / <input id="buttonRandom" type="button" value="Random" onclick="onClickButtonRandom()">
+        </p>
+        
+        <p>
+        描画が重くなってきた場合は、一度Pauseしてみてください。
+        </p>
+        
+        <script>
+            const N = 0; // North
+            const W = 1; // West
+            const S = 2; // South
+            const E = 3; // East
+            
+            const TURMITE_COLOR = 0;
+            const TURMITE_TURN  = 1;
+            const TURMITE_STATE = 2;
+            
+            const MAX_COLOR = 9;
+            const MAX_TURMITE = 16;
+            
+            class Turmite
+            {
+                constructor(width, height)
+                {
+                    this.width  = width;
+                    this.height = height;
+                    
+                    this.ant = [];
+                    this.random();
+                    
+                    this.field = [];
+                    for (var i = 0; i < width; ++i)
+                        this.field[i] = new Array(height);
+                    
+                    this.reset();
+                }
+                
+                get Ant()
+                {
+                    return this.ant;
+                }
+                
+                random()
+                {
+                    this.ant.length = 0;
+                    for (var i = 0; i < MAX_TURMITE; ++i)
+                        this.addAnt(Math.random() * this.width, Math.random() * this.height, generateRandomTurn());
+                }
+                
+                reset()
+                {
+                    for (var i = 0; i < this.width; ++i)
+                        this.field[i].fill(0);
+                }
+                
+                addAnt(x, y, direction)
+                {
+                    var rule = this.randomRule();
+                    
+                    this.ant.push({
+                        x: Math.floor(Math.random() * this.width),
+                        y: Math.floor(Math.random() * this.height),
+                        state: 0,
+                        direction: direction,
+                        rule: rule
+                    });
+                }
+                
+                at(x, y)
+                {
+                    return this.field[x][y] / Math.max(1, (MAX_COLOR - 1));
+                }
+                
+                randomRule()
+                {
+                    var nColor = Math.floor(Math.random() * MAX_COLOR) + 1;
+                    var nState = Math.floor(Math.random() * MAX_COLOR) + 1;
+                    
+                    var rule = new Array(nState);
+                    for (var i = 0; i < rule.length; ++i)
+                    {
+                        rule[i] = new Array(nColor);
+                        for (var j = 0; j < rule[i].length; ++j)
+                        {
+                            rule[i][j] = new Array(3);
+                            rule[i][j][TURMITE_COLOR] = generateRandomRule(nColor);
+                            rule[i][j][TURMITE_TURN]  = generateRandomTurn();
+                            rule[i][j][TURMITE_STATE] = generateRandomRule(nState);
+                        }
+                    }
+                    
+                    console.log(rule);
+                    
+                    return rule;
+                }
+                
+                next()
+                {
+                    for (var i = 0; i < this.ant.length; ++i)
+                    {
+                        var x = this.ant[i].x;;
+                        var y = this.ant[i].y;
+                        var a = this.ant[i];
+                        var r = a.rule[a.state % a.rule.length][this.field[x][y] % a.rule[0].length];
+                        
+                        // 現在地点のセルを更新
+                        this.field[x][y] = r[TURMITE_COLOR];
+                        
+                        // antの状態を更新
+                        a.state = r[TURMITE_STATE];
+                        
+                        // 次に進む方向を決定
+                        switch(r[TURMITE_TURN])
+                        {
+                            case 1: // no turn
+                                break;
+                            case 2: // right
+                                a.direction = this.mod(a.direction - 1, 4);
+                                break;
+                            case 4: // u-turn
+                                a.direction = this.mod(a.direction + 2, 4);
+                                break;
+                            case 8: // left
+                                a.direction = this.mod(a.direction + 1, 4);
+                                break;
+                            default:
+                                console.log("Invalid Rule.Turn");
+                                console.log(r[TURMITE_TURN]);
+                        }
+                        
+                        // 一歩進む
+                        switch(a.direction)
+                        {
+                            case N:
+                                a.y = this.mod(a.y + 1, this.height);
+                                break;
+                            case E:
+                                a.x = this.mod(a.x + 1, this.width);
+                                break;
+                            case S:
+                                a.y = this.mod(a.y - 1, this.height);
+                                break;
+                            case W:
+                                a.x = this.mod(a.x - 1, this.width);
+                                break;
+                            default:
+                                console.log("Invalid direction");
+                        }
+                    }
+                }
+                
+                mod(a, b)
+                {
+                    if (b < 0)
+                        return null;
+                    else if (a < 0)
+                        return b + a;
+                    else
+                        return a % b;
+                }
+            }
+            
+            // canvas設定 //
+            var canvasMain = document.getElementById("canvasMain");
+            var width  = canvasMain.width;
+            var height = canvasMain.height;
+            var context = canvasMain.getContext('2d');
+            var imageData = context.getImageData(0, 0, width, height);
+            var pixels = imageData.data;
+            
+            canvasMain.addEventListener("click", onClickCanvasMain, false);
+            
+            context.imageSmoothingEnabled = false;
+            
+            // animation 設定 //
+            var pause = false;
+            var colorMod = { r: 39, g: 2300, b: 1 };
+            
+            // --- //
+            var turmite = new Turmite(canvasMain.width, canvasMain.height);
+            displaytextRule();
+            
+            animate();
+            
+            function animate()
+            {
+                if(!pause)
+                {
+                    requestAnimationFrame( animate );
+                }
+                
+                updateCanvas();
+            }
+            
+            var speed = parseInt(document.getElementById("numberSpeed").value);
+            var step = 0;
+            spanStep = document.getElementById("spanStep");
+            function updateCanvas()
+            {
+                for (var y = 0; y < height; ++y) {
+                    for (var x = 0; x < width; ++x) {
+                        var c = color(turmite.at(x, y));
+                        
+                        var index = (y * width + x) * 4;
+                        pixels[index + 0] = c.r; // R
+                        pixels[index + 1] = c.g; // G
+                        pixels[index + 2] = c.b; // B
+                        pixels[index + 3] = 255; // A
+                    }
+                }
+
+                context.putImageData(imageData, 0, 0);
+                
+                // ステップを進める
+                if (!pause)
+                    stepForward();
+                
+                spanStep.textContent = step;
+                
+                // antの位置を表示
+                if (document.getElementById("checkboxDisplayAnt").checked == true)
+                    drawAnt();
+            }
+            
+            function drawAnt()
+            {
+                for (var i = 0; i < turmite.Ant.length; ++i)
+                {
+                    var x = turmite.Ant[i].x;
+                    var y = turmite.Ant[i].y;
+                    var d = turmite.Ant[i].direction;
+                    
+                    context.strokeStyle = "#333333";
+                    context.lineWidth = 0.3;
+                    
+                    // 縦軸
+                    context.beginPath();
+                    context.moveTo(0, y);
+                    context.lineTo(width, y);
+                    context.stroke();
+                    
+                    // 横軸
+                    context.beginPath();
+                    context.moveTo(x, 0);
+                    context.lineTo(x, height);
+                    context.stroke();
+                    
+                    // 向き
+                    context.strokeStyle = toColorCode(color(turmite.Ant[i].state / MAX_COLOR));
+                    context.lineWidth = 1;
+                    context.beginPath();
+                    context.moveTo(x, y);
+                    switch(d)
+                    {
+                        case N:
+                            context.lineTo(x, height);
+                            break;
+                        case E:
+                            context.lineTo(width, y);
+                            break;
+                        case S:
+                            context.lineTo(x, 0);
+                            break;
+                        case W:
+                            context.lineTo(0, y);
+                            break;
+                        default:
+                    }
+                    context.stroke();
+                }
+            }
+            
+            function color(value)
+            {
+                var c = Math.floor(value * 255) % 256;
+                return {
+                    //r: 255 - c,
+                    //g: 255 - c,
+                    //b: 255 - c
+                    r: 255 - (colorMod.r * c) % 256,
+                    g: 255 - (colorMod.g * c) % 256,
+                    b: 255 - (colorMod.b * c) % 256
+                    };
+            }
+            
+            function toColorCode(color)
+            {
+                return "#" + color.r.toString(16) + color.g.toString(16) + color.b.toString(16);
+            }
+            
+            function changeColorMod()
+            {
+                colorMod.r = Math.floor(Math.random() * 65536);
+                colorMod.g = Math.floor(Math.random() * 65536);
+                colorMod.b = Math.floor(Math.random() * 65536);
+            }
+            
+            function stepForward()
+            {
+                for (var i = 0; i < speed; ++i)
+                    turmite.next();
+                    
+                step += speed;
+            }
+            
+            // Canvas 入力 //
+            function onClickCanvasMain(e)
+            {
+                var rect = e.target.getBoundingClientRect();
+                var x = e.clientX - rect.left;
+                var y = e.clientY - rect.top;
+                
+                turmite.addAnt(x, y, S);
+                animate();
+            }
+            
+            // UI //
+            function check(value, id)
+            {
+                var input = document.getElementById(id);
+                if (isNaN(value) || value < input.min)
+                    value = input.min;
+                
+                input.value = value;
+                return parseInt(value, 10);
+            }
+            
+            function onInputNumberSpeed(value)
+            {
+                value = check(value, "numberSpeed");
+                speed = parseInt(value);
+            }
+            
+            function onClickButtonStep()
+            {
+                var buttonPause = document.getElementById('buttonPause');
+                buttonPause.value = "Play";
+                pause = true;
+                
+                stepForward();
+                animate();
+            }
+            
+            function onClickButtonPause()
+            {
+                var buttonPause = document.getElementById('buttonPause');
+                if(!pause)
+                {
+                    buttonPause.value = "Play";
+                    pause = true;
+                }
+                else
+                {
+                    buttonPause.value = "Pause";
+                    pause = false;
+                    
+                    requestAnimationFrame( animate );
+                }
+            }
+            
+            function onClickButtonClear()
+            {
+                step = 0;
+                turmite.reset();
+                animate();
+            }
+            
+            function onClickButtonRandom()
+            {
+                turmite.random();
+                displaytextRule();
+                changeColorMod();
+                onClickButtonClear();
+            }
+            
+            function displaytextRule()
+            {
+                textRule = document.getElementById("textRule");
+                
+                var rule = "";
+                
+                var a = turmite.Ant;
+                
+                for (var i = 0; i < a.length; ++i)
+                {
+                    var r = a[i].rule;
+                    rule += "(" + r[0].length.toString() + "," + r.length.toString() + ")";
+                    
+                    for (var j = 0; j < r.length; ++j)
+                        for (var k = 0; k < r[j].length; ++k)
+                            for (var l = 0; l < r[j][k].length; ++l)
+                                rule += r[j][k][l].toString();
+                    
+                    rule += ".";
+                }
+                
+                textRule.value = rule;
+            }
+            
+            // Rule 関連 //
+            function generateRandomRule(n)
+            {
+                return Math.floor(Math.random() * n);
+            }
+            function generateRandomTurn()
+            {
+                var turn = [1, 2, 4, 8];
+                return turn[Math.floor(Math.random() * 4)];
+            }
+        </script>
+	</body>
+</html>
